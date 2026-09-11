@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>DayZ Solo Companion</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { margin: 0; padding: 0; background: #121212; color: #eee; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    nav { display: flex; background: #1b1b1b; border-bottom: 1px solid #333; position: sticky; top: 0; z-index: 1000; }
+    nav button { flex: 1; padding: 12px 4px; background: none; border: none; color: #888; font-weight: 600; font-size: 13px; text-transform: uppercase; }
+    nav button.active { color: #4caf50; border-bottom: 2px solid #4caf50; }
+    .tab-content { display: none; height: calc(100vh - 43px); overflow-y: auto; }
+    .tab-content.active { display: block; }
+    #map-container { display: flex; flex-direction: column; height: 100%; }
+    #map { flex: 1; width: 100%; background: #080808; }
+    .map-controls { padding: 10px; background: #181818; display: flex; gap: 8px; align-items: center; }
+    #coordDisplay { padding: 10px; background: #121212; text-align: center; font-family: monospace; font-size: 13px; border-top: 1px solid #222; }
+    .panel { padding: 16px; }
+    input, select, button.action-btn { width: 100%; padding: 10px; margin: 6px 0; background: #222; border: 1px solid #444; color: #fff; border-radius: 4px; box-sizing: border-box; }
+    button.action-btn { background: #4caf50; font-weight: bold; border: none; margin-top: 8px; }
+    .card { background: #1c1c1c; padding: 12px; margin-bottom: 8px; border-radius: 4px; border-left: 4px solid #4caf50; }
+    .card.done { text-decoration: line-through; opacity: 0.5; border-left-color: #666; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <button class="active" onclick="switchTab('map-tab', this)">Map</button>
+    <button onclick="switchTab('craft-tab', this)">Crafting</button>
+    <button onclick="switchTab('build-tab', this)">Build</button>
+    <button onclick="switchTab('shop-tab', this)">Shopping</button>
+    <button onclick="switchTab('med-tab', this)">Medical</button>
+  </nav>
+
+  <div id="map-tab" class="tab-content active">
+    <div id="map-container">
+      <div class="map-controls">
+        <select id="mapMode" style="margin: 0; flex: 1;">
+          <option value="coord">Mode: Coordinates (X, Z)</option>
+          <option value="route">Mode: Road Router</option>
+        </select>
+        <button onclick="resetRouting()" style="padding: 10px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;">Clear</button>
+      </div>
+      <div id="map"></div>
+      <div id="coordDisplay">Tap location on map</div>
+    </div>
+  </div>
+
+  <div id="craft-tab" class="tab-content">
+    <div class="panel">
+      <input type="text" id="craftSearch" placeholder="Search crafting..." onkeyup="filterCrafting()">
+      <div id="craftList">
+        <div class="card" data-name="splint"><b>Splint:</b> 2x Sticks + 4x Bandages (or 1x Duct Tape / 1x Rag 4-stack)</div>
+        <div class="card" data-name="improvised suppressor"><b>Improvised Suppressor:</b> 1x Plastic Bottle + 1x Duct Tape</div>
+        <div class="card" data-name="rope"><b>Rope:</b> 6x Rags + 6x Rags (or Guts + Knife)</div>
+        <div class="card" data-name="improvised backpack"><b>Improvised Backpack:</b> Burlap Sack + Rope (+3 Wooden Sticks to upgrade)</div>
+        <div class="card" data-name="hand drill kit"><b>Hand Drill Kit:</b> 1x Stick + 1x Bark</div>
+        <div class="card" data-name="torch"><b>Torch:</b> 1x Stick + 1x Rag (add Fat/Lard for longer burn)</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="build-tab" class="tab-content">
+    <div class="panel">
+      <h3>Base Calculator</h3>
+      <label>Number of Walls/Fences:</label>
+      <input type="number" id="fenceCount" value="1" min="1" oninput="calcBuild()">
+      <label>Build Type:</label>
+      <select id="plankOption" onchange="calcBuild()">
+        <option value="wood">Wood Wall (Full Planks)</option>
+        <option value="frame">Frame Only</option>
+      </select>
+      <div id="buildResults" class="card" style="margin-top: 10px;"></div>
+    </div>
+  </div>
+
+  <div id="shop-tab" class="tab-content">
+    <div class="panel">
+      <h3>Shopping / Run List</h3>
+      <input type="text" id="shopInput" placeholder="Add item (e.g. Olga Spark Plug)">
+      <button class="action-btn" onclick="addShoppingItem()">Add</button>
+      <div id="shopList" style="margin-top: 15px;"></div>
+      <button onclick="clearShopping()" style="background: none; border: none; color: #ff5252; margin-top: 10px; padding: 5px;">Clear All</button>
+    </div>
+  </div>
+
+  <div id="med-tab" class="tab-content">
+    <div class="panel">
+      <h3>Medical Tree</h3>
+      <div class="card"><b>Cough / Sneeze:</b> Cold / Flu. Warmth + Multivitamins / Tetracycline.</div>
+      <div class="card"><b>Vomiting:</b> Cholera (dirty water) or Salmonella (raw food). Tetracycline for Cholera, Charcoal for Salmonella.</div>
+      <div class="card"><b>Infection:</b> Grunting after dirty bandage. Stage 1: Iodine/Alcohol. Stage 2: Tetracycline.</div>
+      <div class="card"><b>Kuru:</b> Uncontrolled laughing/tremors. Caused by cannibalism. No cure.</div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="js/router.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js');
+    }
+  </script>
+</body>
+</html>
