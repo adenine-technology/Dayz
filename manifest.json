@@ -1,0 +1,9 @@
+{
+  "name": "DayZ Field Kit",
+  "short_name": "FieldKit",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0d0f0c",
+  "theme_color": "#181b15"
+}
